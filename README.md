@@ -1,39 +1,27 @@
 # NexusAI Commerce
 
-**AI-Powered Digital Products & Services Store** with XRP payments, automated generation, subscriptions, and Escrow marketplace.
+AI-Powered Digital Products Store with XRP, XRPL Escrow, subscriptions, social login.
 
-## Features
-
-- **AI Content Generation** – Automatically creates digital products
-- **XRP Payments** – Native support via XRPL + verification through XRPSCAN API
-- **Multi-Provider Ready** – Easy to add Stripe, PayPal, other cryptos later
-- **Subscriptions** – Free / Pro / Enterprise plans
-- **Escrow Marketplace** – Brokerage for development, financing and advertising
-- **Fully Automated** – Background jobs for generation, payment checking, reports
-- **Modern Stack** – Next.js 14, Prisma, Tailwind, TypeScript
-
-## Getting Started
+## Quick Start
 
 ```bash
-npm install
+git clone https://github.com/Johanne012/nexusai-commerce.git
+cd nexusai-commerce
 cp .env.example .env
-# Edit .env with your PLATFORM_XRPL_ADDRESS
-npx prisma generate
-npx prisma db push
+npm install
+npx prisma generate && npx prisma db push
 npm run dev
 ```
 
-## XRP Payment Flow
+## Security & Scaling
 
-1. `POST /api/payments/xrp/create` → returns address + Destination Tag
-2. User sends XRP with that Tag
-3. `POST /api/payments/xrp/verify` with txHash → verifies via XRPSCAN
-4. System activates order / subscription automatically
+- Local: SQLite
+- Production: PostgreSQL (Supabase/Railway) + SSL + pooling
+- Social login (GitHub/Google) for customer acquisition
+- Never commit .env
 
-## Adding New Payment Providers
+## Deploy on Vercel
 
-Implement the `PaymentProvider` interface in `src/lib/payments/` and register it in `index.ts`.
-
-## License
+Import the GitHub repo, set env vars (NEXTAUTH_SECRET, NEXTAUTH_URL, DATABASE_URL, PLATFORM_XRPL_ADDRESS), deploy.
 
 MIT

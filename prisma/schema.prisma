@@ -1,0 +1,135 @@
+// Prisma schema for NexusAI Commerce
+// Supports XRP payments, subscriptions, escrow marketplace, and multi-provider payments
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite" // Change to "postgresql" for production (Supabase / Railway)
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String?
+  role          String    @default("USER") // USER | CREATOR | ADMIN
+  xrplAddress   String?   // User's XRPL address for receiving payouts
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  products      Product[]
+  orders        Order[]
+  subscriptions Subscription[]
+  escrowJobs    EscrowJob[] @relation("ClientEscrow")
+  providerJobs  EscrowJob[] @relation("ProviderEscrow")
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  content     String   // AI-generated digital content
+  priceXrp    Float    // Price in XRP
+  priceUsd    Float?   // Optional USD equivalent
+  category    String   // e.g. "marketing", "code", "ebook", "service"
+  isActive    Boolean  @default(true)
+  isAiGenerated Boolean @default(true)
+  creatorId   String?
+  creator     User?    @relation(fields: [creatorId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orders      OrderItem[]
+}
+
+model Order {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  status          String   @default("PENDING") // PENDING | PAID | FAILED | REFUNDED
+  totalXrp        Float
+  paymentProvider String   @default("xrp") // xrp | stripe | paypal ...
+  paymentId       String?  // External payment reference (tx hash for XRP)
+  destinationTag  Int?     // For XRP Destination Tag
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  items           OrderItem[]
+  payments        Payment[]
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int     @default(1)
+  priceXrp  Float
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  orderId         String?
+  order           Order?   @relation(fields: [orderId], references: [id])
+  subscriptionId  String?
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
+  provider        String   // xrp | stripe | ...
+  externalId      String?  // XRPL transaction hash or Stripe session id
+  amount          Float
+  currency        String   @default("XRP")
+  status          String   @default("PENDING") // PENDING | COMPLETED | FAILED | EXPIRED
+  rawData         String?  // JSON of verification response
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Subscription {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  planId          String   // free | pro | enterprise
+  status          String   @default("ACTIVE") // ACTIVE | CANCELLED | EXPIRED | PAST_DUE
+  currentPeriodStart DateTime @default(now())
+  currentPeriodEnd   DateTime
+  paymentProvider String   @default("xrp")
+  xrplAddress     String?  // Address used for recurring payments
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  payments        Payment[]
+}
+
+model EscrowJob {
+  id              String   @id @default(cuid())
+  title           String
+  description     String
+  amountXrp       Float
+  status          String   @default("OPEN") // OPEN | FUNDED | IN_PROGRESS | COMPLETED | DISPUTED | CANCELLED
+  clientId        String
+  client          User     @relation("ClientEscrow", fields: [clientId], references: [id])
+  providerId      String?
+  provider        User?    @relation("ProviderEscrow", fields: [providerId], references: [id])
+  
+  // XRPL Escrow fields
+  escrowSequence  Int?     // Sequence number of the EscrowCreate transaction
+  condition       String?  // Crypto-condition for finish
+  fulfillment     String?
+  finishAfter     DateTime?
+  cancelAfter     DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model AiGenerationLog {
+  id          String   @id @default(cuid())
+  prompt      String
+  result      String
+  productId   String?
+  status      String   @default("SUCCESS")
+  createdAt   DateTime @default(now())
+}

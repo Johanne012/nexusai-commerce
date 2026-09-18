@@ -1,0 +1,1 @@
+/** DemoPaymentProvider - always succeeds for testing */

@@ -1,0 +1,1 @@
+/** Full AI generator with 8 product types and 4 quality tiers, Arabic + English support */

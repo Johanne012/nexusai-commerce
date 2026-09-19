@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "node scripts/check-env.mjs && prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
+    "env:check": "node scripts/check-env.mjs",
+    "env:check:strict": "FORCE_STRICT_ENV=1 node scripts/check-env.mjs",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "postinstall": "prisma generate",

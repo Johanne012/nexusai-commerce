@@ -1,6 +1,6 @@
 /**
  * Unified Payment Provider Interface
- * Makes the system future-proof for Stripe, PayPal, other cryptos, etc.
+ * Future-proof for XRP, Demo, Stripe, agentic rails
  */
 
 export type PaymentStatus = "pending" | "completed" | "failed" | "expired" | "cancelled";
@@ -16,14 +16,14 @@ export interface PaymentSession {
   destinationAddress?: string;
   destinationTag?: number;
   expiresAt?: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PaymentVerificationResult {
   status: PaymentStatus;
   externalId?: string;
   amountReceived?: number;
-  raw?: any;
+  raw?: unknown;
   verifiedAt: Date;
 }
 
@@ -36,13 +36,15 @@ export interface PaymentProvider {
     amount: number;
     currency: string;
     userId: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }): Promise<PaymentSession>;
 
   verifyPayment(params: {
     paymentId: string;
     externalId?: string;
+    expectedAmount?: number;
+    expectedTag?: number;
   }): Promise<PaymentVerificationResult>;
 
-  handleWebhook?(payload: any, headers?: Record<string, string>): Promise<void>;
+  handleWebhook?(payload: unknown, headers?: Record<string, string>): Promise<void>;
 }

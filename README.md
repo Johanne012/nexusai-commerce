@@ -1,27 +1,60 @@
 # NexusAI Commerce
 
-AI-Powered Digital Products Store with XRP, XRPL Escrow, subscriptions, social login.
+منصة SaaS لإنتاج وبيع المنتجات الرقمية بالذكاء الاصطناعي + مدفوعات XRP + XRPL Escrow + اشتراكات.
 
-## Quick Start
+## المميزات
+
+- 8 أنواع منتجات × 4 مستويات جودة (عربي / إنجليزي)
+- دفع XRP مع Destination Tag والتحقق عبر XRPSCAN
+- مزود Demo للاختبار
+- سوق وساطة (Escrow)
+- اشتراكات Free / Pro / Enterprise
+- NextAuth (Credentials + جاهز لـ GitHub/Google)
+- واجهة RTL داكنة
+
+## التشغيل المحلي
 
 ```bash
 git clone https://github.com/Johanne012/nexusai-commerce.git
 cd nexusai-commerce
 cp .env.example .env
+# عدّل NEXTAUTH_SECRET و PLATFORM_XRPL_ADDRESS
+
 npm install
-npx prisma generate && npx prisma db push
+npx prisma generate
+npx prisma db push
 npm run dev
 ```
 
-## Security & Scaling
+افتح http://localhost:3000
 
-- Local: SQLite
-- Production: PostgreSQL (Supabase/Railway) + SSL + pooling
-- Social login (GitHub/Google) for customer acquisition
-- Never commit .env
+## متغيرات البيئة (Vercel)
 
-## Deploy on Vercel
+| المتغير | مطلوب |
+|---------|--------|
+| `NEXTAUTH_SECRET` | نعم |
+| `NEXTAUTH_URL` | نعم |
+| `DATABASE_URL` | نعم (`file:./dev.db` أو Postgres) |
+| `PLATFORM_XRPL_ADDRESS` | للدفع الحقيقي |
 
-Import the GitHub repo, set env vars (NEXTAUTH_SECRET, NEXTAUTH_URL, DATABASE_URL, PLATFORM_XRPL_ADDRESS), deploy.
+## الصفحات
+
+| المسار | الوظيفة |
+|--------|----------|
+| `/` | الرئيسية |
+| `/products` | المنتجات |
+| `/generate` | توليد بالذكاء |
+| `/subscriptions` | الخطط |
+| `/pay` | دفع XRP |
+| `/marketplace` | سوق الوساطة |
+| `/dashboard` | لوحة التحكم |
+| `/login` `/register` | المصادقة |
+
+## البناء الآلي
+
+- `vercel.json` → `prisma generate && next build`
+- GitHub Actions على كل push لـ `main`
+
+## الترخيص
 
 MIT

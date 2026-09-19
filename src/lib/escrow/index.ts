@@ -45,3 +45,15 @@ export function getEscrowStatusLabel(status: EscrowStatus): string {
   };
   return labels[status] || status;
 }
+
+// Re-export XRPL escrow builders
+export {
+  xrpToDrops,
+  dropsToXrp,
+  buildEscrowCreateParams,
+  buildEscrowFinishParams,
+  buildEscrowCancelParams,
+  generateConditionPlaceholder,
+  finishAfterHours,
+  cancelAfterHours,
+} from "./xrpl-escrow";

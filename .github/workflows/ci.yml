@@ -1,4 +1,4 @@
-name: CI - Next.js Build
+name: CI — Next.js and PostgreSQL
 
 on:
   push:
@@ -6,30 +6,66 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nexusai
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: nexusai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexusai -d nexusai"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
-      DATABASE_URL: "file:./dev.db"
-      NEXTAUTH_SECRET: "ci-build-secret-not-for-production"
-      NEXTAUTH_URL: "http://localhost:3000"
-
+      DATABASE_URL: postgresql://nexusai:ci-only-password@127.0.0.1:5432/nexusai?schema=public
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ci-only-secret-not-for-production-use-123456789
+      # Deliberately fake values used only so the production build preflight can run.
+      STRIPE_SECRET_KEY: sk_test_ci_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+      XRP_USD_RATE: "0.6"
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out source
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: 22
+          cache: npm
 
-      - name: Install dependencies
+      - name: Install locked dependencies
         run: npm ci
 
       - name: Generate Prisma Client
-        run: npx prisma generate
+        run: npm run db:generate
 
-      - name: Build Next.js
+      - name: Apply PostgreSQL migrations
+        run: npm run db:migrate:deploy
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build production bundle
         run: npm run build
-
-      - name: Success
-        run: echo "Next.js build completed successfully"

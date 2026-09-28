@@ -8,15 +8,14 @@ export default function HomePage() {
         <div className="text-center max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-1.5 text-sm mb-6">
             <span className="h-2 w-2 rounded-full bg-[hsl(var(--success))] animate-pulse" />
-            يعمل تلقائيًا — مدفوعات XRP + ذكاء اصطناعي
+            التوليد والدفع يتطلبان ربط خدمات الإنتاج
           </div>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl leading-tight">
             أنتج وبِع منتجات رقمية
             <span className="block text-[hsl(var(--primary))] mt-2">بالذكاء الاصطناعي</span>
           </h1>
           <p className="mt-6 text-lg text-[hsl(var(--muted-foreground))] leading-relaxed">
-            منصة SaaS آلية بالكامل تولّد كتبًا إلكترونية، نصوصًا تسويقية، كودًا، تقارير وباقات خدمات،
-            ثم تبيعها بـ XRP مع نظام اشتراكات وسوق وساطة (Escrow).
+            أنشئ واعرض منتجات رقمية بمساعدة الذكاء الاصطناعي بعد ربط مزود النموذج والدفع. تدير المنصة المتجر والطلبات والاشتراكات، وتعرض قوائم وظائف مستقلة.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <Link
@@ -37,8 +36,8 @@ export default function HomePage() {
           {[
             { label: "أنواع المنتجات", value: "8+" },
             { label: "مستويات الجودة", value: "4" },
-            { label: "أنظمة الدفع", value: "XRP + Demo" },
-            { label: "Escrow حقيقي", value: "XRPL" },
+            { label: "أنظمة الدفع", value: "Stripe / XRP عند الإعداد" },
+            { label: "سوق الوظائف", value: "قوائم وظائف" },
           ].map((stat) => (
             <div
               key={stat.label}
@@ -56,18 +55,18 @@ export default function HomePage() {
           <div className="grid gap-6 md:grid-cols-3">
             {[
               {
-                title: "توليد تلقائي ذكي",
-                desc: "8 أنواع منتجات × 4 مستويات جودة. كتب، كود، تقارير، حملات تسويقية والمزيد.",
+                title: "ذكاء اصطناعي للتجارة",
+                desc: "توليد مسودات كتب وحملات وتقارير وكود وبرومبتات بعد إعداد مفتاح مزود الذكاء الاصطناعي؛ راجع المحتوى قبل نشره للبيع.",
                 icon: "🤖",
               },
               {
-                title: "مدفوعات XRP + Escrow",
-                desc: "دفع فوري بـ XRP مع Destination Tag، وتحقق عبر XRPSCAN، ونظام Escrow حقيقي على XRPL.",
+                title: "مدفوعات رقمية",
+                desc: "يدعم المشروع Stripe وXRP؛ تفعيل الدفع الحقيقي يحتاج حسابًا أو عنوان استقبال وإعداد Webhook وبيئة الإنتاج.",
                 icon: "⚡",
               },
               {
-                title: "اشتراكات وسوق وساطة",
-                desc: "خطط Free / Pro / Enterprise + سوق للمطورين والتمويل والإشهار مع حماية Escrow.",
+                title: "اشتراكات وقوائم وظائف",
+                desc: "خطط Free / Pro / Enterprise، مع تجديد Stripe شهريًا أو تجديد XRP يدويًا. لوحة الوظائف ليست خدمة ضمان أو وساطة أموال.",
                 icon: "🏪",
               },
             ].map((f) => (

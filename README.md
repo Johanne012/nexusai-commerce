@@ -1,60 +1,44 @@
 # NexusAI Commerce
 
-منصة SaaS لإنتاج وبيع المنتجات الرقمية بالذكاء الاصطناعي + مدفوعات XRP + XRPL Escrow + اشتراكات.
+منصة تجريبية للتجارة الرقمية: توليد منتجات بالذكاء الاصطناعي، متجر، تسعير، طلبات، اشتراكات، وسوق وظائف. المشروع لا ينفذ حاليًا ضمان أموال حقيقيًا على XRPL؛ السوق لوحة وظائف فقط.
 
-## المميزات
+## المتطلبات والتشغيل
 
-- 8 أنواع منتجات × 4 مستويات جودة (عربي / إنجليزي)
-- دفع XRP مع Destination Tag والتحقق عبر XRPSCAN
-- مزود Demo للاختبار
-- سوق وساطة (Escrow)
-- اشتراكات Free / Pro / Enterprise
-- NextAuth (Credentials + جاهز لـ GitHub/Google)
-- واجهة RTL داكنة
-
-## التشغيل المحلي
+1. أنشئ قاعدة PostgreSQL ثم انسخ `.env.example` إلى `.env` واضبط `DATABASE_URL` و`NEXTAUTH_SECRET` و`NEXTAUTH_URL`.
+2. ثبّت Node.js 20.9 أو أحدث.
+3. شغّل:
 
 ```bash
-git clone https://github.com/Johanne012/nexusai-commerce.git
-cd nexusai-commerce
-cp .env.example .env
-# عدّل NEXTAUTH_SECRET و PLATFORM_XRPL_ADDRESS
-
-npm install
-npx prisma generate
-npx prisma db push
+npm ci
+npm run db:generate
+npm run db:migrate:deploy
+npm run db:seed
 npm run dev
 ```
 
-افتح http://localhost:3000
+في بيئة النشر، استخدم `npm run db:migrate:deploy` لتطبيق migrations الموجودة فقط. لا تستخدم `prisma db push` للإنتاج.
 
-## متغيرات البيئة (Vercel)
+## الحسابات والبيانات
 
-| المتغير | مطلوب |
-|---------|--------|
-| `NEXTAUTH_SECRET` | نعم |
-| `NEXTAUTH_URL` | نعم |
-| `DATABASE_URL` | نعم (`file:./dev.db` أو Postgres) |
-| `PLATFORM_XRPL_ADDRESS` | للدفع الحقيقي |
+لا يحتوي المشروع على كلمة مرور تجريبية عامة ولا ينبغي إنشاء حسابات افتراضية في الإنتاج. استخدم تسجيل الحساب العادي، أو فعّل OAuth بعد ضبط بيانات المزود.
 
-## الصفحات
+## الدفع
 
-| المسار | الوظيفة |
-|--------|----------|
-| `/` | الرئيسية |
-| `/products` | المنتجات |
-| `/generate` | توليد بالذكاء |
-| `/subscriptions` | الخطط |
-| `/pay` | دفع XRP |
-| `/marketplace` | سوق الوساطة |
-| `/dashboard` | لوحة التحكم |
-| `/login` `/register` | المصادقة |
+- XRP: يتطلب `PLATFORM_XRPL_ADDRESS` وواجهة XRPSCAN، ويتم ربط المعاملة بسجل الدفع ومبلغ/وسم متوقعين على الخادم.
+- Stripe: المنتجات دفعة واحدة؛ الخطط اشتراك شهري متكرر. يتطلب `STRIPE_SECRET_KEY` و`STRIPE_WEBHOOK_SECRET`. وجّه أحداث `checkout.session.completed` و`checkout.session.async_payment_succeeded` و`invoice.paid` إلى `/api/payments/stripe/webhook`.
+- Demo: يعمل في التطوير فقط، ولا يُختار تلقائيًا في الإنتاج.
+- لا يمكن تفعيل خطة مدفوعة أو إكمال طلب من العميل دون تحقق الدفع.
 
-## البناء الآلي
+راجع [DEPLOY.md](./DEPLOY.md) لخطوات PostgreSQL والترحيل من SQLite.
 
-- `vercel.json` → `prisma generate && next build`
-- GitHub Actions على كل push لـ `main`
+## التحقق محليًا
+
+```bash
+npm run typecheck
+npm test
+npm run lint
+npm run build
+```
 
 ## الترخيص
-
 MIT

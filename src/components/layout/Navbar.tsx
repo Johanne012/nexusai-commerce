@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 
 const links = [
   { href: "/", label: "الرئيسية" },
@@ -14,6 +15,7 @@ const links = [
 
 export function Navbar() {
   const pathname = usePathname();
+  const { data: session, status } = useSession();
 
   return (
     <header className="sticky top-0 z-50 border-b border-[hsl(var(--border))] bg-[hsl(var(--background)/0.9)] backdrop-blur-md">
@@ -43,12 +45,36 @@ export function Navbar() {
           })}
         </nav>
         <div className="flex items-center gap-3">
-          <Link href="/login" className="rounded-lg px-4 py-2 text-sm font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]">
-            دخول
-          </Link>
-          <Link href="/register" className="rounded-lg bg-[hsl(var(--primary))] px-4 py-2 text-sm font-medium text-[hsl(var(--primary-foreground))] hover:opacity-90">
-            تسجيل
-          </Link>
+          {status === "loading" ? (
+            <span className="text-sm text-[hsl(var(--muted-foreground))]">...</span>
+          ) : session?.user ? (
+            <>
+              <span className="hidden sm:inline text-sm text-[hsl(var(--muted-foreground))] truncate max-w-[160px]">
+                {session.user.email}
+              </span>
+              <button
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
+              >
+                خروج
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+              >
+                دخول
+              </Link>
+              <Link
+                href="/register"
+                className="rounded-lg bg-[hsl(var(--primary))] px-4 py-2 text-sm font-medium text-[hsl(var(--primary-foreground))] hover:opacity-90"
+              >
+                تسجيل
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>

@@ -1,8 +1,3 @@
-/**
- * Unified Payment Provider Interface
- * Future-proof for XRP, Demo, Stripe, agentic rails
- */
-
 export type PaymentStatus = "pending" | "completed" | "failed" | "expired" | "cancelled";
 
 export interface PaymentSession {
@@ -23,13 +18,28 @@ export interface PaymentVerificationResult {
   status: PaymentStatus;
   externalId?: string;
   amountReceived?: number;
+  currency?: string;
+  metadata?: Record<string, string>;
+  providerSubscriptionId?: string;
+  periodStart?: Date;
+  periodEnd?: Date;
   raw?: unknown;
   verifiedAt: Date;
 }
 
+export interface PaymentWebhookEvent {
+  eventId: string;
+  type: string;
+  sessionId?: string;
+  paid: boolean;
+  metadata?: Record<string, string>;
+  providerSubscriptionId?: string;
+  periodStart?: Date;
+  periodEnd?: Date;
+}
+
 export interface PaymentProvider {
   readonly name: string;
-
   createPayment(params: {
     orderId?: string;
     subscriptionId?: string;
@@ -38,13 +48,11 @@ export interface PaymentProvider {
     userId: string;
     metadata?: Record<string, unknown>;
   }): Promise<PaymentSession>;
-
   verifyPayment(params: {
     paymentId: string;
     externalId?: string;
     expectedAmount?: number;
     expectedTag?: number;
   }): Promise<PaymentVerificationResult>;
-
-  handleWebhook?(payload: unknown, headers?: Record<string, string>): Promise<void>;
+  handleWebhook?(payload: string | Buffer, headers?: Record<string, string>): Promise<PaymentWebhookEvent>;
 }

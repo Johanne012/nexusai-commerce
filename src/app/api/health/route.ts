@@ -21,9 +21,11 @@ export async function GET() {
       info: runtime.info,
     },
     features: {
-      xrpPayments: Boolean(process.env.PLATFORM_XRPL_ADDRESS),
+      xrpPayments: Boolean(/^r[1-9A-HJ-NP-Za-km-z]{24,34}$/.test(process.env.PLATFORM_XRPL_ADDRESS || "")),
+      stripePayments: Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET),
       aiGeneration: true,
-      escrow: true,
+      escrow: false,
+      marketplaceJobs: true,
       auth: Boolean(process.env.NEXTAUTH_SECRET),
     },
   });

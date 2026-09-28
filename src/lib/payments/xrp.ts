@@ -1,25 +1,19 @@
-/**
- * XRP Payment Provider
- * Uses XRPL + XRPSCAN API for verification
- */
+import { randomInt } from "node:crypto";
+import type { PaymentProvider, PaymentSession, PaymentVerificationResult } from "./base";
+import { hasValidXrpExpectation, isValidXrpTransactionHash, paymentAmountsMatch } from "./amount";
 
-import { PaymentProvider, PaymentSession, PaymentVerificationResult } from "./base";
-
-const XRPSCAN_API = process.env.XRPSCAN_API_URL || "https://api.xrpscan.com/api/v1";
-const PLATFORM_XRPL_ADDRESS = process.env.PLATFORM_XRPL_ADDRESS || "";
-const PLATFORM_DESTINATION_TAG_BASE = 100000;
+const XRPSCAN_API = (process.env.XRPSCAN_API_URL || "https://api.xrpscan.com/api/v1").replace(/\/$/, "");
+const PLATFORM_XRPL_ADDRESS = (process.env.PLATFORM_XRPL_ADDRESS || "").trim();
 
 interface XrpscanTransaction {
   hash: string;
+  TransactionType: string;
   Account: string;
   Destination: string;
   DestinationTag?: number;
   Amount: string | { value: string; currency: string };
-  date: string;
-  meta?: {
-    TransactionResult: string;
-    delivered_amount?: any;
-  };
+  date?: string;
+  meta?: { TransactionResult?: string; delivered_amount?: string | { value: string; currency: string } | "unavailable" };
   ledger_index: number;
 }
 
@@ -32,16 +26,17 @@ export class XrpPaymentProvider implements PaymentProvider {
     amount: number;
     currency: string;
     userId: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }): Promise<PaymentSession> {
-    if (!PLATFORM_XRPL_ADDRESS) {
+    if (!PLATFORM_XRPL_ADDRESS || PLATFORM_XRPL_ADDRESS.includes("YourXrpl") || PLATFORM_XRPL_ADDRESS.includes("rYour") || PLATFORM_XRPL_ADDRESS.length < 25) {
       throw new Error("PLATFORM_XRPL_ADDRESS is not configured");
     }
-
-    const uniquePart = params.orderId || params.subscriptionId || Date.now().toString();
-    const destinationTag = this.generateDestinationTag(uniquePart);
-    const sessionId = `xrp_${Date.now()}_${destinationTag}`;
-
+    if (params.currency.toUpperCase() !== "XRP" || !Number.isFinite(params.amount) || params.amount <= 0) {
+      throw new Error("XRP payment amount or currency is invalid");
+    }
+    const seed = String(params.metadata?.paymentId || params.orderId || params.subscriptionId || `${params.userId}-${Date.now()}`);
+    const destinationTag = randomInt(1, 0xffffffff);
+    const sessionId = `xrp_${seed}`;
     return {
       id: sessionId,
       provider: this.name,
@@ -52,114 +47,43 @@ export class XrpPaymentProvider implements PaymentProvider {
       destinationTag,
       qrCodeData: `xrp:${PLATFORM_XRPL_ADDRESS}?amount=${params.amount}&dt=${destinationTag}`,
       expiresAt: new Date(Date.now() + 30 * 60 * 1000),
-      metadata: {
-        orderId: params.orderId,
-        subscriptionId: params.subscriptionId,
-        userId: params.userId,
-        ...params.metadata,
-      },
+      metadata: { orderId: params.orderId, planId: params.subscriptionId, userId: params.userId, ...params.metadata },
     };
   }
 
-  async verifyPayment(params: {
-    paymentId: string;
-    externalId?: string;
-    expectedAmount?: number;
-    expectedTag?: number;
-  }): Promise<PaymentVerificationResult> {
+  async verifyPayment(params: { paymentId: string; externalId?: string; expectedAmount?: number; expectedTag?: number }): Promise<PaymentVerificationResult> {
+    if (!params.externalId) return { status: "pending", verifiedAt: new Date(), raw: { message: "Provide txHash" } };
+    if (!hasValidXrpExpectation(params.expectedAmount, params.expectedTag)) {
+      return { status: "failed", externalId: params.externalId, verifiedAt: new Date(), raw: { error: "Expected amount and destination tag are required" } };
+    }
+    if (!isValidXrpTransactionHash(params.externalId)) {
+      return { status: "failed", externalId: params.externalId, verifiedAt: new Date(), raw: { error: "Invalid XRPL transaction hash" } };
+    }
     try {
-      if (params.externalId) {
-        return await this.verifyByTxHash(params.externalId, params.expectedAmount, params.expectedTag);
-      }
-
-      return {
-        status: "pending",
-        verifiedAt: new Date(),
-        raw: { message: "Provide txHash for verification" },
-      };
-    } catch (error: any) {
-      return {
-        status: "failed",
-        verifiedAt: new Date(),
-        raw: { error: error.message },
-      };
+      return await this.verifyByTxHash(params.externalId, params.expectedAmount!, params.expectedTag!);
+    } catch (error: unknown) {
+      return { status: "failed", externalId: params.externalId, verifiedAt: new Date(), raw: { error: error instanceof Error ? error.message : "XRPL verification failed" } };
     }
   }
 
-  private async verifyByTxHash(
-    txHash: string,
-    expectedAmount?: number,
-    expectedTag?: number
-  ): Promise<PaymentVerificationResult> {
-    const url = `${XRPSCAN_API}/tx/${txHash}`;
-    const response = await fetch(url, { headers: { Accept: "application/json" } });
+  private async verifyByTxHash(txHash: string, expectedAmount: number, expectedTag: number): Promise<PaymentVerificationResult> {
+    const response = await fetch(`${XRPSCAN_API}/tx/${encodeURIComponent(txHash)}`, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10000) });
+    if (!response.ok) return { status: "pending", externalId: txHash, verifiedAt: new Date(), raw: { error: `XRPSCAN returned ${response.status}` } };
+    const tx = await response.json() as XrpscanTransaction;
+    const fail = (reason: string) => ({ status: "failed" as const, externalId: txHash, verifiedAt: new Date(), raw: { reason, tx } });
+    if (tx.TransactionType !== "Payment") return fail("Transaction is not a Payment");
+    if (tx.meta?.TransactionResult !== "tesSUCCESS") return fail("Transaction did not succeed");
+    if (tx.Destination !== PLATFORM_XRPL_ADDRESS) return fail("Wrong destination address");
+    if (tx.DestinationTag !== expectedTag) return fail("Destination Tag mismatch");
 
-    if (!response.ok) {
-      return {
-        status: "failed",
-        verifiedAt: new Date(),
-        raw: { error: `XRPSCAN returned ${response.status}` },
-      };
-    }
-
-    const tx: XrpscanTransaction = await response.json();
-
-    if (tx.meta?.TransactionResult !== "tesSUCCESS") {
-      return { status: "failed", externalId: txHash, verifiedAt: new Date(), raw: tx };
-    }
-
-    if (tx.Destination !== PLATFORM_XRPL_ADDRESS) {
-      return {
-        status: "failed",
-        externalId: txHash,
-        verifiedAt: new Date(),
-        raw: { ...tx, reason: "Wrong destination address" },
-      };
-    }
-
-    if (expectedTag && tx.DestinationTag !== expectedTag) {
-      return {
-        status: "failed",
-        externalId: txHash,
-        verifiedAt: new Date(),
-        raw: { ...tx, reason: "Destination Tag mismatch" },
-      };
-    }
-
-    let amountReceived = 0;
-    if (typeof tx.Amount === "string") {
-      amountReceived = parseInt(tx.Amount, 10) / 1_000_000;
-    } else if (tx.Amount?.value) {
-      amountReceived = parseFloat(tx.Amount.value);
-    }
-
-    if (expectedAmount && Math.abs(amountReceived - expectedAmount) > 0.0001) {
-      return {
-        status: "failed",
-        externalId: txHash,
-        amountReceived,
-        verifiedAt: new Date(),
-        raw: { ...tx, reason: "Amount mismatch" },
-      };
-    }
-
-    return {
-      status: "completed",
-      externalId: txHash,
-      amountReceived,
-      verifiedAt: new Date(),
-      raw: tx,
-    };
+    const delivered = tx.meta?.delivered_amount;
+    const amountValue = delivered && delivered !== "unavailable" ? delivered : tx.Amount;
+    if (typeof amountValue !== "string") return fail("Only native XRP payments are accepted");
+    const amountReceived = Number(amountValue) / 1_000_000;
+    if (!paymentAmountsMatch(expectedAmount, amountReceived, "XRP")) return fail("Amount mismatch");
+    return { status: "completed", externalId: txHash, amountReceived, currency: "XRP", verifiedAt: new Date(), raw: tx };
   }
 
-  private generateDestinationTag(seed: string): number {
-    let hash = 0;
-    for (let i = 0; i < seed.length; i++) {
-      hash = (hash << 5) - hash + seed.charCodeAt(i);
-      hash |= 0;
-    }
-    return Math.abs(hash) % 900000 + PLATFORM_DESTINATION_TAG_BASE;
-  }
 }
 
 export const xrpProvider = new XrpPaymentProvider();

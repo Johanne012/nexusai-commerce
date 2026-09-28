@@ -1,4 +1,5 @@
-import { PaymentProvider, PaymentSession, PaymentVerificationResult } from "./base";
+import { randomUUID } from "node:crypto";
+import type { PaymentProvider, PaymentSession, PaymentVerificationResult } from "./base";
 
 export class DemoPaymentProvider implements PaymentProvider {
   readonly name = "demo";
@@ -9,28 +10,26 @@ export class DemoPaymentProvider implements PaymentProvider {
     amount: number;
     currency: string;
     userId: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }): Promise<PaymentSession> {
+    const id = `demo_${randomUUID()}`;
     return {
-      id: `demo_${Date.now()}`,
+      id,
       provider: this.name,
       amount: params.amount,
-      currency: params.currency || "XRP",
+      currency: params.currency,
       status: "pending",
-      paymentUrl: `/pay/demo/${Date.now()}`,
       expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-      metadata: params.metadata,
+      metadata: { ...params.metadata, orderId: params.orderId, planId: params.subscriptionId, userId: params.userId },
     };
   }
 
   async verifyPayment(params: { paymentId: string; externalId?: string }): Promise<PaymentVerificationResult> {
-    return {
-      status: "completed",
-      externalId: params.externalId || params.paymentId,
-      amountReceived: 0,
-      verifiedAt: new Date(),
-      raw: { provider: "demo" },
-    };
+    const id = params.externalId || params.paymentId;
+    if (process.env.NODE_ENV === "production" || !id.startsWith("demo_")) {
+      return { status: "failed", verifiedAt: new Date(), raw: { error: "Demo payments are disabled" } };
+    }
+    return { status: "completed", externalId: id, verifiedAt: new Date(), raw: { provider: "demo" } };
   }
 }
 

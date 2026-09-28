@@ -1,76 +1,31 @@
-/**
- * Environment validation for Vercel / local
- */
-
 export type EnvMode = "build" | "runtime" | "strict";
-
-export interface EnvCheckResult {
-  ok: boolean;
-  mode: EnvMode;
-  missing: string[];
-  warnings: string[];
-  info: Record<string, string>;
-}
-
-const REQUIRED_RUNTIME = ["NEXTAUTH_SECRET", "NEXTAUTH_URL"] as const;
-const REQUIRED_STRICT = [
-  "NEXTAUTH_SECRET",
-  "NEXTAUTH_URL",
-  "DATABASE_URL",
-  "PLATFORM_XRPL_ADDRESS",
-] as const;
-const REQUIRED_BUILD = ["DATABASE_URL"] as const;
-
-function present(key: string): boolean {
-  const v = process.env[key];
-  return typeof v === "string" && v.trim().length > 0;
-}
+export interface EnvCheckResult { ok: boolean; mode: EnvMode; missing: string[]; warnings: string[]; info: Record<string, string> }
+const present = (key: string) => typeof process.env[key] === "string" && Boolean(process.env[key]!.trim());
+const postgresUrl = () => /^postgres(ql)?:\/\//.test(process.env.DATABASE_URL || "");
+const hasStripe = () => present("STRIPE_SECRET_KEY") && present("STRIPE_WEBHOOK_SECRET");
+const hasXrp = () => present("PLATFORM_XRPL_ADDRESS") && (process.env.PLATFORM_XRPL_ADDRESS || "").length >= 25 && !(process.env.PLATFORM_XRPL_ADDRESS || "").includes("YourXrpl");
 
 export function validateEnv(mode: EnvMode = "runtime"): EnvCheckResult {
-  const list =
-    mode === "build"
-      ? REQUIRED_BUILD
-      : mode === "strict"
-        ? REQUIRED_STRICT
-        : REQUIRED_RUNTIME;
-
   const missing: string[] = [];
-  for (const key of list) {
-    if (!present(key)) missing.push(key);
-  }
-
+  const required = mode === "build" ? ["DATABASE_URL"] : ["DATABASE_URL", "NEXTAUTH_SECRET", "NEXTAUTH_URL"];
+  for (const key of required) if (!present(key)) missing.push(key);
+  if (present("DATABASE_URL") && !postgresUrl()) missing.push("DATABASE_URL must be PostgreSQL");
+  if (mode === "strict" && !hasStripe() && !hasXrp()) missing.push("Configure Stripe (secret + webhook secret) or PLATFORM_XRPL_ADDRESS");
+  if (present("NEXTAUTH_SECRET") && process.env.NEXTAUTH_SECRET!.length < 32) missing.push("NEXTAUTH_SECRET must be at least 32 characters");
   const warnings: string[] = [];
-  if (!present("PLATFORM_XRPL_ADDRESS")) {
-    warnings.push("PLATFORM_XRPL_ADDRESS missing — XRP payments will fail until set");
-  }
-  if (!present("DATABASE_URL")) {
-    warnings.push("DATABASE_URL missing — set file:./dev.db or Postgres on Vercel");
-  }
-  if (present("NEXTAUTH_SECRET") && (process.env.NEXTAUTH_SECRET?.length || 0) < 16) {
-    warnings.push("NEXTAUTH_SECRET should be at least 16 characters");
-  }
-
+  if (!hasStripe() && !hasXrp()) warnings.push("No real payment provider configured; payments will be unavailable");
+  const rate = Number(process.env.XRP_USD_RATE || "0.6");
+  if (!Number.isFinite(rate) || rate <= 0) warnings.push("XRP_USD_RATE must be a positive number");
   return {
     ok: missing.length === 0,
     mode,
     missing,
     warnings,
-    info: {
-      NODE_ENV: process.env.NODE_ENV || "undefined",
-      hasXrpl: String(present("PLATFORM_XRPL_ADDRESS")),
-      hasDb: String(present("DATABASE_URL")),
-      hasAuthSecret: String(present("NEXTAUTH_SECRET")),
-      hasAuthUrl: String(present("NEXTAUTH_URL")),
-    },
+    info: { NODE_ENV: process.env.NODE_ENV || "undefined", hasStripe: String(hasStripe()), hasXrp: String(hasXrp()), hasDb: String(postgresUrl()), hasAuthSecret: String(present("NEXTAUTH_SECRET")), hasAuthUrl: String(present("NEXTAUTH_URL")) },
   };
 }
 
 export function assertEnv(mode: EnvMode = "runtime"): void {
   const result = validateEnv(mode);
-  if (!result.ok) {
-    throw new Error(
-      `[env] Missing required variables (${mode}): ${result.missing.join(", ")}. ` +
-        `Set them in Vercel → Settings → Environment Variables.`
-    );
-  }
+  if (!result.ok) throw new Error(`[env] Missing/invalid variables (${mode}): ${result.missing.join(", ")}`);
 }
